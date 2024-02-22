@@ -3,6 +3,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import util
 import random
+
+
 def learn_distributions(file_lists_by_category):
     """
     Estimate the parameters p_d, and q_d from the training set
@@ -19,12 +21,30 @@ def learn_distributions(file_lists_by_category):
     the second element is a dict whose keys are words, and whose values are the 
     smoothed estimates of q_d 
     """
-    ### TODO: Write your code here
-    
-    
-    return probabilities_by_category
 
-def classify_new_email(filename,probabilities_by_category,prior_by_category):
+    p = util.get_word_freq(file_lists_by_category[0])
+    q = util.get_word_freq(file_lists_by_category[1])
+
+    all_words = set(p.keys()).union(set(q.keys()))
+    d = len(all_words)
+    num_spam = sum(p.values())
+    num_ham = sum(q.values())
+
+    for word in all_words:
+        if word in p:
+            p[word] = (p[word] + 1) / (num_spam + d)
+        else:
+            p[word] = 1 / (num_spam + d)
+
+        if word in q:
+            q[word] = (q[word] + 1) / (num_ham + d)
+        else:
+            q[word] = 1 / (num_ham + d)
+
+    return p, q
+
+
+def classify_new_email(filename, probabilities_by_category, prior_by_category, threshold=1):
     """
     Use Naive Bayes classification to classify the email in the given file.
 
@@ -42,20 +62,74 @@ def classify_new_email(filename,probabilities_by_category,prior_by_category):
     second element is a two-element list as [log p(y=1|x), log p(y=0|x)], 
     representing the log posterior probabilities
     """
-    ### TODO: Write your code here
-    
-    
-    return classify_result
+
+    word_dict = util.get_word_freq([filename])
+    spam_sum = 0
+    ham_sum = 0
+    p = probabilities_by_category[0]
+    q = probabilities_by_category[1]
+    for k, v in word_dict.items():
+        if k in p:
+            spam_sum += np.log(p[k]) * v
+        if k in q:
+            ham_sum += np.log(q[k]) * v
+
+    spam_sum += np.log(prior_by_category[0])
+    ham_sum += np.log(prior_by_category[1])
+
+    if spam_sum > ham_sum + np.log(threshold):
+        result = "spam"
+    else:
+        result = "ham"
+
+    return result, (spam_sum, ham_sum)
+
 
 def select_files(directory, fraction=0.75):
     all_files = [os.path.join(directory, f) for f in os.listdir(directory) if f.endswith('.txt')]
     random.shuffle(all_files)
     num_files = int(len(all_files) * fraction)
     return all_files[:num_files]
+
+
+def plot_tradeoff(test_folder, probabilities_by_category, priors_by_category):
+    thresholds = [1e-100, 1e-10, 1e-5, 0.1, 1, 50, 100, 1e4, 1e10, 1e100]
+
+    type1_errors = []
+    type2_errors = []
+
+    for threshold in thresholds:
+        performance_measures = np.zeros([2, 2])
+        for filename in (util.get_files_in_folder(test_folder)):
+            label, _ = classify_new_email(filename, probabilities_by_category, priors_by_category, threshold)
+
+            base = os.path.basename(filename)
+            true_index = ('ham' in base)
+            guessed_index = (label == 'ham')
+            performance_measures[int(true_index), int(guessed_index)] += 1
+
+        type1_error = performance_measures[1, 0]  # True label: Ham, Predicted: Spam
+        type2_error = performance_measures[0, 1]  # True label: Spam, Predicted: Ham
+        type1_errors.append(type1_error)
+        type2_errors.append(type2_error)
+
+    # print(type1_errors)
+    # print(type2_errors)
+    plt.figure(figsize=(10, 6))
+    plt.plot(type1_errors, type2_errors, marker='o')
+    plt.title('Trade-off between Type 1 and Type 2 Errors')
+    plt.xlabel('Number of Type 1 Errors')
+    plt.ylabel('Number of Type 2 Errors')
+    plt.grid(True)
+    plt.savefig('nbc.pdf', format='pdf')
+    # plt.show()
+
+
 if __name__ == '__main__':
 
     ############################CHANGE YOUR STUDENT ID###############################
-    student_number = 12345678  # Replace with the actual student number
+    # student_number = 12345678  # Replace with the actual student number
+    student_number = 1006212821
     random.seed(student_number)
     # folder for training and testing
     spam_folder = "data/spam"
@@ -69,15 +143,14 @@ if __name__ == '__main__':
     file_lists = []
     file_lists = [select_files(folder) for folder in (spam_folder, ham_folder)]
 
-        
-    # Learn the distributions    
+    # Learn the distributions
     probabilities_by_category = learn_distributions(file_lists)
-    
+
     # prior class distribution
     priors_by_category = [0.5, 0.5]
-    
+
     # Store the classification results
-    performance_measures = np.zeros([2,2])
+    performance_measures = np.zeros([2, 2])
     # explanation of performance_measures:
     # columns and rows are indexed by 0 = 'spam' and 1 = 'ham'
     # rows correspond to true label, columns correspond to guessed label
@@ -91,26 +164,18 @@ if __name__ == '__main__':
     # Classify emails from testing set and measure the performance
     for filename in (util.get_files_in_folder(test_folder)):
         # Classify
-        label,log_posterior = classify_new_email(filename,
-                                                 probabilities_by_category,
-                                                 priors_by_category)
-        
+        label, log_posterior = classify_new_email(filename, probabilities_by_category, priors_by_category)
+
         # Measure performance (the filename indicates the true label)
         base = os.path.basename(filename)
-        true_index = ('ham' in base) 
+        true_index = ('ham' in base)
         guessed_index = (label == 'ham')
         performance_measures[int(true_index), int(guessed_index)] += 1
 
-    template="You correctly classified %d out of %d spam emails, and %d out of %d ham emails."
+    template = "You correctly classified %d out of %d spam emails, and %d out of %d ham emails."
     # Correct counts are on the diagonal
     correct = np.diag(performance_measures)
     # totals are obtained by summing across guessed labels
     totals = np.sum(performance_measures, 1)
-    print(template % (correct[0],totals[0],correct[1],totals[1]))
-    
-    
-    ### TODO: Write your code here to modify the decision rule such that
-    ### Type 1 and Type 2 errors can be traded off, plot the trade-off curve
-   
-
- 
+    print(template % (correct[0], totals[0], correct[1], totals[1]))
+    # plot_tradeoff(test_folder, probabilities_by_category, priors_by_category, smooth_vals)

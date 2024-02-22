@@ -1,12 +1,14 @@
 import os
 
+
 def get_words_in_file(filename):
     """ Returns a list of all words in the file at filename. """
-    with open(filename, 'r', encoding = "ISO-8859-1") as f:
+    with open(filename, 'r', encoding="ISO-8859-1") as f:
         # read() reads in a string from a file pointer, and split() splits a
         # string into words based on whitespace
         words = f.read().split()
     return words
+
 
 def get_files_in_folder(folder):
     """ Returns a list of files in folder (including the path to the file) """
@@ -14,6 +16,7 @@ def get_files_in_folder(folder):
     # os.path.join combines paths while dealing with /s and \s appropriately
     full_filenames = [os.path.join(folder, filename) for filename in filenames]
     return full_filenames
+
 
 def get_counts(file_list):
     """ 
@@ -27,6 +30,7 @@ def get_counts(file_list):
             counts[w] += 1
     return counts
 
+
 def get_word_freq(file_list):
     """ 
     Returns a dict whose keys are words and whose values are word freq
@@ -38,10 +42,11 @@ def get_word_freq(file_list):
             counts[w] += 1
     return counts
 
+
 class Counter(dict):
     """
     Like a dict, but returns 0 if the key isn't found.
     """
+
     def __missing__(self, key):
         return 0
-
