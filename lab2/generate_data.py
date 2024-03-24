@@ -4,7 +4,7 @@ import numpy as np
 # you're changing the seed or adjusting the data generation parameters.
 
 # Set the random seed to your student ID
-StudentID=np.random.seed(123456789)
+StudentID=np.random.seed(1006212821)
 
 # Number of samples
 num_samples = 100
